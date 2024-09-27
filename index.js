@@ -8,7 +8,7 @@ app.use(cors());
 
 const io = socketIO(server, {
     cors: {
-        origin: "http://localhost:4200", // Replace with your Angular app URL
+        origin: "https://prakash-video.netlify.app", // Replace with your Angular app URL
         methods: ["GET", "POST"], // Allowed methods
         allowedHeaders: ["Content-Type"], // Allowed headers
         credentials: true // Allow credentials
