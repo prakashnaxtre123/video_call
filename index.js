@@ -1,40 +1,62 @@
 const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
-const cors = require('cors'); // Import cors
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const authRoutes = require('./routes/auth');
+const { Server } = require('socket.io');
+// Express setup
 const app = express();
-const server = http.createServer(app);
 app.use(cors());
+app.use(express.json());
+app.use('/auth', authRoutes);
 
-const io = socketIO(server, {
-    cors: {
-        origin: "https://prakash-video.netlify.app", // Replace with your Angular app URL
-        methods: ["GET", "POST"], // Allowed methods
-        allowedHeaders: ["Content-Type"], // Allowed headers
-        credentials: true // Allow credentials
-    }
+// Create server and attach Socket.IO
+const server = http.createServer(app);
+// Initialize Socket.IO with CORS options
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:4200', // Your Angular app URL
+    methods: ['GET', 'POST'],
+    credentials: true, // Allow credentials
+  },
 });
 
-// Serve static files from the Angular app (built later)
-app.use(express.static(__dirname + '/public'));
+// Middleware to authenticate socket connections using JWT
+io.use((socket, next) => {
+  const token = socket.handshake.query.token;
+  try {
+    const user = jwt.verify(token, 'your_jwt_secret');
+    socket.user = user;
+    next();
+  } catch (error) {
+    next(new Error('Authentication error'));
+  }
+});
 
-// Handle socket connections
+// Socket.IO connection
 io.on('connection', (socket) => {
-    console.log('New user connected:', socket.id);
+  console.log(`User connected: ${socket.user.username}`);
 
-    // Handle video call signals
-    socket.on('join-room', (roomId, userId) => {
-        console.log(`${userId} joined room ${roomId}`);
-        socket.join(roomId);
-        socket.broadcast.to(roomId).emit('user-connected', userId);
+  // Handle signaling for video call
+  socket.on('call-user', ({ offer, targetUser }) => {
+    io.to(targetUser).emit('receive-call', { offer, from: socket.user.username });
+  });
 
-        socket.on('disconnect', () => {
-            socket.broadcast.to(roomId).emit('user-disconnected', userId);
-        });
-    });
+  socket.on('answer-call', ({ answer, targetUser }) => {
+    io.to(targetUser).emit('call-answered', { answer });
+  });
+
+  socket.on('ice-candidate', ({ candidate, targetUser }) => {
+    io.to(targetUser).emit('new-ice-candidate', { candidate });
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.user.username}`);
+  });
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// Start server
+server.listen(3000, () => {
+  console.log('Server running on port 3000');
 });
