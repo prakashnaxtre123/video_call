@@ -16,7 +16,7 @@ const server = http.createServer(app);
 // Initialize Socket.IO with CORS options
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:4200', // Your Angular app URL
+    origin: 'https://prakash-video.netlify.app', // Your Angular app URL
     methods: ['GET', 'POST'],
     credentials: true, // Allow credentials
   },
